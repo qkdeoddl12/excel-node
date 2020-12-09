@@ -15,9 +15,9 @@ const mysql_conn_info = {
     port: '3307'
 }
 
-const myFormat = printf(({ level, message, label, timestamp }) => {
+/* const myFormat = printf(({ level, message, label, timestamp }) => {
     return `${timestamp} [${label}] ${level}: ${message}`;    // log 출력 포맷 정의
-  });
+  }); */
 
 const winston_options = {
     // log파일
@@ -296,16 +296,14 @@ function procHIS() {
 
                 if(req!==undefined){
 
-                }
-
-
-                let update_sql = `UPDATE mfmblotsts 
+                    let update_sql = `UPDATE mfmblotsts 
                                     SET QTY = '${qty}',
                                     UNIT='${unit}',
                                     OPER='INV001',` +
                         `${date_type} = '${last_tran}'` + ` WHERE ORDER_ID = '${req}'`;
 
                 console.log('update_sql', update_sql)
+
                 conn.query(update_sql, function (err, result) {
                     if (err) 
                         throw err;
@@ -370,6 +368,17 @@ function procHIS() {
                     });
 
                 });
+
+                }else{
+                    winston_options.format
+
+                    let logger = new winston.createLogger({
+                        transports: [
+                          new winston.transports.File(winston_options.file) // 중요! 위에서 선언한 option으로 로그 파일 관리 모듈 transport
+                        ],
+                        exitOnError: false, 
+                      });
+                }
             });
 
             fs.rename(
