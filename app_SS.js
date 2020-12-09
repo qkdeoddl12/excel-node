@@ -28,7 +28,7 @@ const resData = {};
 var resultData = [];
 
 let rule = new schedule.RecurrenceRule();
-rule.second = 20;
+rule.second = 10;
 let job = schedule.scheduleJob(rule, function () {
     console.log("10초동안에 돈다.");
     procSTS();
@@ -73,13 +73,14 @@ function procSTS() {
                     customer = element['고객사'],
                     file1 = element['도면 파일'],
                     file2 = element['견적서 파일'],
-                    mat_type = element['소재 재질'],
+                    mat_type = element['제품타입'],
                     mat_thick = element['소재 두께'],
                     oper = changeOPERCODE(element['작업공정']),
                     comment = regExp_test(element['비고']),
                     //order_date=intTodate(element['작업일시']),
                     order_date = element['작업일시'],
                     qty = checkValue(element['작업수량']),
+                    //qty = element['작업수량'],
                     loss_qty = checkValue(element['불량수량']),
                     time_type = '';
                 if (oper == 'ASSY001') {
@@ -87,6 +88,8 @@ function procSTS() {
                 } else {
                     time_type = 'SHIP_TIME';
                 }
+
+                console.log(element)
 
                 let sql_mfmblothis =
                     `INSERT INTO mfmblothis (ORDER_ID,TRAN_USER_ID,DUE_DATE,CUSTOMER,OPER,
@@ -349,7 +352,7 @@ function procHIS() {
 
 
 function checkValue(val) {
-    if (val == '' || val == undefined) {
+    if (val == 'undefined') {
         return 0
     }
 
