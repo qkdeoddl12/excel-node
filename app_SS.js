@@ -1,3 +1,5 @@
+const appRoot = require('app-root-path');
+const winston = require('Winston')
 const xlsx = require('xlsx');
 const mysql = require('mysql');
 const fs = require('fs');
@@ -13,8 +15,44 @@ const mysql_conn_info = {
     port: '3307'
 }
 
+const myFormat = printf(({ level, message, label, timestamp }) => {
+    return `${timestamp} [${label}] ${level}: ${message}`;    // log 출력 포맷 정의
+  });
+
+const winston_options = {
+    // log파일
+    file: {
+      level: 'info',
+      filename: `${appRoot}/logs/fmb_excel%DATE%.log`, // 로그파일을 남길 경로
+      handleExceptions: true,
+      json: false,
+      maxsize: 5242880, // 5MB
+      maxFiles: 30,
+      colorize: false,
+      format: combine(
+        label({ label: 'fmb_excel' }),
+        timestamp(),
+        myFormat    // log 출력 포맷
+      )
+    },
+    // 개발 시 console에 출력
+    console: {
+      level: 'debug',
+      handleExceptions: true,
+      json: false, // 로그형태를 json으로도 뽑을 수 있다.
+      colorize: true,
+      format: combine(
+        label({ label: 'nba_express' }),
+        timestamp(),
+        myFormat
+      )
+    }
+  }
+
+
+
 const conn = mysql.createConnection(mysql_conn_info);
-let oper_code=[];
+let oper_code = [];
 
 conn.connect((error) => {
     if (error) {
@@ -24,15 +62,14 @@ conn.connect((error) => {
     }
 });
 
-conn.query('select * from oper_code',function (err, result) {
-    if (err) throw err;
-    //console.log('result',result)
-    oper_code=JSON.parse(JSON.stringify(result) ) 
+conn.query('select * from oper_code', function (err, result) {
+    if (err) 
+        throw err;
     
+    //console.log('result',result)
+    oper_code = JSON.parse(JSON.stringify(result))
+
 })
-
-
-
 
 const resData = {};
 var resultData = [];
@@ -45,17 +82,13 @@ let job = schedule.scheduleJob(rule, function () {
     procHIS();
 })
 
-
-
-
-
-
 //작업진행현황
 function procSTS() {
 
     fs.readdir(procFolder, function (error, filelist) {
         console.log(filelist);
-        let sucCnt = 0, failCnt = 0;
+        let sucCnt = 0,
+            failCnt = 0;
 
         filelist.forEach(element => {
             if (element == 'done') {
@@ -69,45 +102,36 @@ function procSTS() {
             const sheetnames = Object.keys(workbook.Sheets);
 
             const sheetname = sheetnames[0];
-            resData[sheetname] = xlsx.utils.sheet_to_json(workbook.Sheets[sheetname]);
+            resData[sheetname] = xlsx
+                .utils
+                .sheet_to_json(workbook.Sheets[sheetname]);
             resultData = resData[sheetname];
-
 
             resultData.forEach(element => {
 
-
                 let req = element['작업지시ID'],
                     user = element['작업자'],
-                    //due_date=intTodate(element['납기일자']),
                     due_date = element['납기일자'],
                     customer = element['고객사'],
                     file1 = element['도면 파일'],
                     file2 = element['견적서 파일'],
                     mat_type = element['제품타입'],
                     mat_thick = element['소재 두께'],
-                    //oper = changeOPERCODE(element['작업공정']),
-                    
                     comment = regExp_test(element['비고']),
-                    //order_date=intTodate(element['작업일시']),
                     order_date = element['작업일시'],
                     qty = checkValue(element['작업수량']),
-                    //qty = element['작업수량'],
                     loss_qty = checkValue(element['불량수량']),
                     time_type = '';
-               
 
-                let oper=oper_code.filter(x => {
-                    return x.oName==element['작업공정']
+                let oper = oper_code.filter(x => {
+                    return x.oName == element['작업공정']
                 });
 
-                if(oper.length!=0){
-                    oper=oper[0].oCode
-                }else{
-                    oper='INV001'
+                if (oper.length != 0) {
+                    oper = oper[0].oCode
+                } else {
+                    oper = 'INV001'
                 }
-                
-
-
 
                 if (oper == 'ASSY001') {
                     time_type = 'END_TIME';
@@ -115,38 +139,32 @@ function procSTS() {
                     time_type = 'SHIP_TIME';
                 }
 
-             
+          
+                console.log('oper', oper)
 
-                console.log('oper',oper)
-
-                let sql_mfmblothis =
-                    `INSERT INTO mfmblothis (ORDER_ID,TRAN_USER_ID,DUE_DATE,CUSTOMER,OPER,
+                let sql_mfmblothis = `INSERT INTO mfmblothis (ORDER_ID,TRAN_USER_ID,DUE_DATE,CUSTOMER,OPER,
                     TRAN_COMMENT,TRAN_TIME,QTY,LOSS_QTY) VALUES 
           ('${req}','${user}','${due_date}','${customer}','${oper}',
            '${comment}','${order_date}',${qty},${loss_qty},'${order_date}'); `;
 
-
-
-
                 let update_sql = `UPDATE mfmblotsts 
             SET QTY = '${qty}',
-            OPER='${oper}',`
-                    + `${time_type} = '${order_date}'` +
-                    ` WHERE ORDER_ID = '${req}'`;
+            OPER='${oper}',` +
+                        `${time_type} = '${order_date}'` + ` WHERE ORDER_ID = '${req}'`;
                 console.log(update_sql)
 
                 conn.query(update_sql, function (err, result) {
-                    if (err) throw err;
+                    if (err) 
+                        console.log('update : ', err)
+                    throw err;
                     console.log(result.affectedRows + " record(s) updated\n");
                     if (result.affectedRows == 0) { //update가 안될경우 insert해준다
 
+
+
+
                         let sql_mfmblotsts = ` INSERT INTO mfmblotsts (ORDER_ID,DUE_DATE,CUSTOMER,FILE1,FILE2,MAT_TYPE,MAT_THICK,OPER,CREATE_QTY,LOSS_QTY,LAST_COMMENT,LAST_TRAN_TIME) VALUES 
               ('${req}','${due_date}','${customer}','${file1}','${file2}','${mat_type}','${mat_thick}','${oper}','${qty}','${loss_qty}','${comment}','${order_date}')`;
-
-
-
-
-
 
                         conn.query(sql_mfmblotsts, function (err, rows, fields) {
                             if (err) {
@@ -158,7 +176,7 @@ function procSTS() {
                                       if(err){
                                           console.log(err)
                                       }else{
-                  
+
                                       }
                                   }); */
                                 failCnt++
@@ -184,7 +202,7 @@ function procSTS() {
                                   if(err){
                                       console.log(err)
                                   }else{
-              
+
                                   }
                               }); */
                             failCnt++
@@ -195,26 +213,27 @@ function procSTS() {
 
                     });
 
-
                 });
             });
 
-            fs.rename(procFolder + "/" + file_Name, procFolder + "/done/" + file_Name, function (err) {
-                if (err) {
-                    console.log('err : ' + err)
-                } else {
-                    let doneSql = `INSERT INTO excel_import_logs
+            fs.rename(
+                procFolder + "/" + file_Name,
+                procFolder + "/done/" + file_Name,
+                function (err) {
+                    if (err) {
+                        console.log('err : ' + err)
+                    } else {
+                        let doneSql = `INSERT INTO excel_import_logs
             (eFile_name, eSucCnt, eFailCnt, eCreateDate)
             VALUES ('${file_Name}', ${sucCnt}, ${failCnt}, NOW())`;
-                    conn.query(doneSql, function (err, rows, fields) {
-                        if (err) {
-                            console.log(err)
-                        } else {
-
-                        }
-                    });
+                        conn.query(doneSql, function (err, rows, fields) {
+                            if (err) {
+                                console.log(err)
+                            } else {}
+                        });
+                    }
                 }
-            });
+            );
 
         })
 
@@ -226,7 +245,8 @@ function procHIS() {
 
     fs.readdir(stockFolder, function (error, filelist) {
         console.log(filelist);
-        let sucCnt = 0, failCnt = 0;
+        let sucCnt = 0,
+            failCnt = 0;
 
         filelist.forEach(element => {
             if (element == 'done') {
@@ -240,12 +260,12 @@ function procHIS() {
             const sheetnames = Object.keys(workbook.Sheets);
 
             const sheetname = sheetnames[0];
-            resData[sheetname] = xlsx.utils.sheet_to_json(workbook.Sheets[sheetname]);
+            resData[sheetname] = xlsx
+                .utils
+                .sheet_to_json(workbook.Sheets[sheetname]);
             resultData = resData[sheetname];
 
-
             resultData.forEach(element => {
-
 
                 let req = element['작업지시ID'],
                     vendor = element['공급사'],
@@ -253,12 +273,12 @@ function procHIS() {
                     last_tran = element['입/출고 시간'],
                     store = element['창고'],
                     mat_id = element['자재품번'],
-                    qty = element['입/출고수량'];
-                unit = element['단위'],
+                    qty = element['입/출고수량'],
+                    unit = element['단위'],
                     comment = regExp_test(element['비고']),
                     file1 = element['첨부파일'],
                     data_stat = element['상태'],
-                    date_type = 'TRAN_TIME'
+                    date_type = 'TRAN_TIME';
 
                 if (req == undefined) {
                     req = mat_id;
@@ -270,37 +290,38 @@ function procHIS() {
                     date_type = 'END_TIME'
                 }
 
+                if (last_tran === undefined) {
+                    last_tran = 0;
+                }
+
+                if(req!==undefined){
+
+                }
+
 
                 let update_sql = `UPDATE mfmblotsts 
                                     SET QTY = '${qty}',
                                     UNIT='${unit}',
-                                    OPER='INV001',`
-                                    + `${date_type} = '${last_tran}'` +
-                                    ` WHERE ORDER_ID = '${req}'`;
+                                    OPER='INV001',` +
+                        `${date_type} = '${last_tran}'` + ` WHERE ORDER_ID = '${req}'`;
 
-                                    console.log('update_sql',update_sql)
+                console.log('update_sql', update_sql)
                 conn.query(update_sql, function (err, result) {
-                    if (err) throw err;
+                    if (err) 
+                        throw err;
+                
                     console.log(result.affectedRows + " record(s) updated");
-                  
+
                     if (result.affectedRows == 0) {
 
-
-
-
-                        let sql_mfmblotsts =
-                            ` INSERT INTO mfmblotsts (ORDER_ID,VENDOR,LAST_TRAN_TIME,STORE_ID,MAT_ID,CREATE_QTY,LAST_COMMENT,FILE1,CREATE_TIME,OPER,QTY) VALUES 
-                            ('${req}','${vendor}','${last_tran}','${store}','${mat_id}','${checkNum(qty)}','${comment}','${file1}','${last_tran}','INV001','${checkNum(qty)}')`;
-
-
-
+                        let sql_mfmblotsts = ` INSERT INTO mfmblotsts (ORDER_ID,VENDOR,LAST_TRAN_TIME,STORE_ID,MAT_ID,CREATE_QTY,LAST_COMMENT,FILE1,CREATE_TIME,OPER,QTY) VALUES 
+                            ('${req}','${vendor}','${last_tran}','${store}','${mat_id}','${checkNum(
+                            qty
+                        )}','${comment}','${file1}','${last_tran}','INV001','${checkNum(qty)}')`;
 
                         //resultData2.push(params)
 
-                        console.log(sql_mfmblothis + sql_mfmblotsts)
-
-
-
+                        console.log(sql_mfmblotsts)
 
                         conn.query(sql_mfmblotsts, function (err, rows, fields) {
                             if (err) {
@@ -312,7 +333,7 @@ function procHIS() {
                                       if(err){
                                           console.log(err)
                                       }else{
-                  
+
                                       }
                                   }); */
                                 failCnt++
@@ -327,10 +348,6 @@ function procHIS() {
                     let sql_mfmblothis = `INSERT INTO mfmblothis (ORDER_ID,VENDOR,TRAN_TIME,STORE_ID,MAT_ID,QTY,TRAN_COMMENT,OPER) VALUES 
             ('${req}','${vendor}','${last_tran}','${store}','${mat_id}','${checkNum(qty)}','${comment}','INV001') `;
 
-
-
-
-
                     conn.query(sql_mfmblothis, function (err, rows, fields) {
                         if (err) {
                             console.log("에러 : " + err, rows);
@@ -341,7 +358,7 @@ function procHIS() {
                                   if(err){
                                       console.log(err)
                                   }else{
-              
+
                                   }
                               }); */
                             failCnt++
@@ -355,41 +372,37 @@ function procHIS() {
                 });
             });
 
-
-            fs.rename(stockFolder + "/" + file_Name, stockFolder + "/done/" + file_Name, function (err) {
-                if (err) {
-                    console.log('err : ' + err)
-                } else {
-                    let doneSql = `INSERT INTO excel_import_logs
+            fs.rename(
+                stockFolder + "/" + file_Name,
+                stockFolder + "/done/" + file_Name,
+                function (err) {
+                    if (err) {
+                        console.log('err : ' + err)
+                    } else {
+                        let doneSql = `INSERT INTO excel_import_logs
           (eFile_name, eSucCnt, eFailCnt, eCreateDate)
           VALUES ('${file_Name}', ${sucCnt}, ${failCnt}, NOW())`;
-                    conn.query(doneSql, function (err, rows, fields) {
-                        if (err) {
-                            console.log(err)
-                        } else {
-
-                        }
-                    });
+                        conn.query(doneSql, function (err, rows, fields) {
+                            if (err) {
+                                console.log(err)
+                            } else {}
+                        });
+                    }
                 }
-            });
+            );
 
         })
 
     })
 }
 
-
-
-
-
 function checkValue(val) {
-    if (typeof  val == "undefined") {
+    if (typeof val == "undefined") {
         return 0
     }
     return val
 
 }
-
 
 function checkNum(val) {
     if (val == '' || val == undefined) {
@@ -397,7 +410,6 @@ function checkNum(val) {
     }
     return val;
 }
-
 
 function changeOPERCODE(val) {
 
@@ -443,11 +455,11 @@ function intTodate(val) {
         return '0000-00-00'
     }
     let date = new Date((parseInt(val) - (25567 + 2)) * 86400 * 1000)
-    let unix = date.getUTCFullYear() + '-' + lpad((date.getMonth() + 1), 2, '0') + '-' + lpad(date.getUTCDate(), 2, '0')
+    let unix = date.getUTCFullYear() + '-' + lpad((date.getMonth() + 1), 2, '0') +
+            '-' + lpad(date.getUTCDate(), 2, '0')
 
     return unix
 }
-
 
 function regExp_test(str) {
     //함수를 호출하여 특수문자 검증 시작.
@@ -455,9 +467,7 @@ function regExp_test(str) {
     var regExp = /[\{\}\[\]\/?.,;:|\)*~`!^\-_+<>@\#$%&\\\=\(\'\"]/gi;
     if (regExp.test(str)) {
         var t = str.replace(regExp, "");
-        //특수문자를 대체. ""
-        //console.log("특수문자 제거. ==>" + t);
-        //특수문자 제거. ==>20171031
+        //특수문자를 대체. "" console.log("특수문자 제거. ==>" + t); 특수문자 제거. ==>20171031
         return t;
     } else {
         if (str == '' || str == undefined) {
@@ -468,7 +478,6 @@ function regExp_test(str) {
     }
 }
 
-
 function lpad(str, padLen, padStr) {
     if (padStr.length > padLen) {
         console.log("오류 : 채우고자 하는 문자열이 요청 길이보다 큽니다");
@@ -476,12 +485,10 @@ function lpad(str, padLen, padStr) {
     }
     str += ""; // 문자로
     padStr += ""; // 문자로
-    while (str.length < padLen)
+    while (str.length < padLen) 
         str = padStr + str;
-    str = str.length >= padLen ? str.substring(0, padLen) : str;
+    str = str.length >= padLen
+        ? str.substring(0, padLen)
+        : str;
     return str;
 }
-
-
-
-
