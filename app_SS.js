@@ -14,6 +14,7 @@ const mysql_conn_info = {
 }
 
 const conn = mysql.createConnection(mysql_conn_info);
+let oper_code=[];
 
 conn.connect((error) => {
     if (error) {
@@ -23,6 +24,15 @@ conn.connect((error) => {
     }
 });
 
+conn.query('select * from oper_code',function (err, result) {
+    if (err) throw err;
+    //console.log('result',result)
+    oper_code=JSON.parse(JSON.stringify(result) ) 
+    
+})
+
+
+
 
 const resData = {};
 var resultData = [];
@@ -30,7 +40,7 @@ var resultData = [];
 let rule = new schedule.RecurrenceRule();
 rule.second = 10;
 let job = schedule.scheduleJob(rule, function () {
-    console.log("10초동안에 돈다.");
+    console.log("10초마다 돈다.");
     procSTS();
     procHIS();
 })
@@ -75,7 +85,8 @@ function procSTS() {
                     file2 = element['견적서 파일'],
                     mat_type = element['제품타입'],
                     mat_thick = element['소재 두께'],
-                    oper = changeOPERCODE(element['작업공정']),
+                    //oper = changeOPERCODE(element['작업공정']),
+                    
                     comment = regExp_test(element['비고']),
                     //order_date=intTodate(element['작업일시']),
                     order_date = element['작업일시'],
@@ -83,13 +94,30 @@ function procSTS() {
                     //qty = element['작업수량'],
                     loss_qty = checkValue(element['불량수량']),
                     time_type = '';
+               
+
+                let oper=oper_code.filter(x => {
+                    return x.oName==element['작업공정']
+                });
+
+                if(oper.length!=0){
+                    oper=oper[0].oCode
+                }else{
+                    oper='INV001'
+                }
+                
+
+
+
                 if (oper == 'ASSY001') {
                     time_type = 'END_TIME';
                 } else {
                     time_type = 'SHIP_TIME';
                 }
 
-                console.log(element)
+             
+
+                console.log('oper',oper)
 
                 let sql_mfmblothis =
                     `INSERT INTO mfmblothis (ORDER_ID,TRAN_USER_ID,DUE_DATE,CUSTOMER,OPER,
@@ -102,14 +130,14 @@ function procSTS() {
 
                 let update_sql = `UPDATE mfmblotsts 
             SET QTY = '${qty}',
-            OPER = '${oper}',`
+            OPER='${oper}',`
                     + `${time_type} = '${order_date}'` +
                     ` WHERE ORDER_ID = '${req}'`;
                 console.log(update_sql)
 
                 conn.query(update_sql, function (err, result) {
                     if (err) throw err;
-                    console.log(result.affectedRows + " record(s) updated");
+                    console.log(result.affectedRows + " record(s) updated\n");
                     if (result.affectedRows == 0) { //update가 안될경우 insert해준다
 
                         let sql_mfmblotsts = ` INSERT INTO mfmblotsts (ORDER_ID,DUE_DATE,CUSTOMER,FILE1,FILE2,MAT_TYPE,MAT_THICK,OPER,CREATE_QTY,LOSS_QTY,LAST_COMMENT,LAST_TRAN_TIME) VALUES 
@@ -230,7 +258,7 @@ function procHIS() {
                     comment = regExp_test(element['비고']),
                     file1 = element['첨부파일'],
                     data_stat = element['상태'],
-                    date_type = ''
+                    date_type = 'TRAN_TIME'
 
                 if (req == undefined) {
                     req = mat_id;
@@ -245,13 +273,16 @@ function procHIS() {
 
                 let update_sql = `UPDATE mfmblotsts 
                                     SET QTY = '${qty}',
-                                    UNIT='${unit}'
-                                    OPER='INV001'`
+                                    UNIT='${unit}',
+                                    OPER='INV001',`
                                     + `${date_type} = '${last_tran}'` +
                                     ` WHERE ORDER_ID = '${req}'`;
+
+                                    console.log('update_sql',update_sql)
                 conn.query(update_sql, function (err, result) {
                     if (err) throw err;
                     console.log(result.affectedRows + " record(s) updated");
+                  
                     if (result.affectedRows == 0) {
 
 
@@ -352,18 +383,19 @@ function procHIS() {
 
 
 function checkValue(val) {
-    if (val == 'undefined') {
+    if (typeof  val == "undefined") {
         return 0
     }
+    return val
 
 }
 
 
 function checkNum(val) {
     if (val == '' || val == undefined) {
-        return val
+        return 0
     }
-    return val.replace(/[^0-9]/g, '');
+    return val;
 }
 
 
