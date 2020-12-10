@@ -3,6 +3,7 @@ const winston = require('Winston')
 const xlsx = require('xlsx');
 const mysql = require('mysql');
 const fs = require('fs');
+const logger = require('./config/logger')
 const schedule = require('node-schedule')
 const procFolder = './proc';
 const stockFolder = './stock';
@@ -18,36 +19,6 @@ const mysql_conn_info = {
 /* const myFormat = printf(({ level, message, label, timestamp }) => {
     return `${timestamp} [${label}] ${level}: ${message}`;    // log 출력 포맷 정의
   }); */
-
-const winston_options = {
-    // log파일
-    file: {
-      level: 'info',
-      filename: `${appRoot}/logs/fmb_excel%DATE%.log`, // 로그파일을 남길 경로
-      handleExceptions: true,
-      json: false,
-      maxsize: 5242880, // 5MB
-      maxFiles: 30,
-      colorize: false,
-      format: combine(
-        label({ label: 'fmb_excel' }),
-        timestamp(),
-        myFormat    // log 출력 포맷
-      )
-    },
-    // 개발 시 console에 출력
-    console: {
-      level: 'debug',
-      handleExceptions: true,
-      json: false, // 로그형태를 json으로도 뽑을 수 있다.
-      colorize: true,
-      format: combine(
-        label({ label: 'nba_express' }),
-        timestamp(),
-        myFormat
-      )
-    }
-  }
 
 
 
@@ -87,6 +58,7 @@ function procSTS() {
 
     fs.readdir(procFolder, function (error, filelist) {
         console.log(filelist);
+        logger.info(`${new Date().toFormat('YYYY-MM-DD HH24:MI:SS')} ${JSON.stringify(filelist)}`)
         let sucCnt = 0,
             failCnt = 0;
 
@@ -157,7 +129,9 @@ function procSTS() {
                     if (err) 
                         console.log('update : ', err)
                     throw err;
-                    console.log(result.affectedRows + " record(s) updated\n");
+                    console.log(result.affectedRows + " record(s) updated");
+                    logger.debug(result.affectedRows + " record(s) updated proc")
+                    logger.info('proc data : ' ,JSON.stringify(element))
                     if (result.affectedRows == 0) { //update가 안될경우 insert해준다
 
 
@@ -169,6 +143,7 @@ function procSTS() {
                         conn.query(sql_mfmblotsts, function (err, rows, fields) {
                             if (err) {
                                 console.log("mfmblotsts 에러 : " + err, rows);
+                                logger.error("mfmblotsts(proc) 에러 : " + err, rows)
                                 /*   let failSql=`INSERT INTO excel_import_fail_logs
                                   (eORDER_IDX, eComment, eCreateDate)
                                   VALUES ('${req}', '${err}', NOW())`;
@@ -195,6 +170,7 @@ function procSTS() {
                     conn.query(sql_mfmblothis, function (err, rows, fields) {
                         if (err) {
                             console.log("mfmblothis 에러 : " + err, rows);
+                            logger.error("mfmblothis(proc) 에러 : " + err, rows)
                             /*   let failSql=`INSERT INTO excel_import_fail_logs
                               (eORDER_IDX, eComment, eCreateDate)
                               VALUES ('${req}', '${err}', NOW())`;
@@ -309,6 +285,8 @@ function procHIS() {
                         throw err;
                 
                     console.log(result.affectedRows + " record(s) updated");
+                    logger.debug(result.affectedRows + " record(s) updated stock")
+                    logger.info('stock data : ' ,JSON.stringify(element))
 
                     if (result.affectedRows == 0) {
 
@@ -324,6 +302,7 @@ function procHIS() {
                         conn.query(sql_mfmblotsts, function (err, rows, fields) {
                             if (err) {
                                 console.log("에러 : " + err, rows);
+                                logger.error("sql_mfmblotsts(stock) 에러 : " + err, rows)
                                 /*   let failSql=`INSERT INTO excel_import_fail_logs
                                   (eORDER_IDX, eComment, eCreateDate)
                                   VALUES ('${req}', '${err}', NOW())`;
@@ -349,6 +328,7 @@ function procHIS() {
                     conn.query(sql_mfmblothis, function (err, rows, fields) {
                         if (err) {
                             console.log("에러 : " + err, rows);
+                            logger.error("sql_mfmblothis(stock) 에러 : " + err, rows)
                             /*   let failSql=`INSERT INTO excel_import_fail_logs
                               (eORDER_IDX, eComment, eCreateDate)
                               VALUES ('${req}', '${err}', NOW())`;
@@ -369,15 +349,11 @@ function procHIS() {
 
                 });
 
-                }else{
-                    winston_options.format
+                }else{//작업지시ID가 없을 경우
+                  
 
-                    let logger = new winston.createLogger({
-                        transports: [
-                          new winston.transports.File(winston_options.file) // 중요! 위에서 선언한 option으로 로그 파일 관리 모듈 transport
-                        ],
-                        exitOnError: false, 
-                      });
+                    logger.error(JSON.stringify(element) )
+                 
                 }
             });
 

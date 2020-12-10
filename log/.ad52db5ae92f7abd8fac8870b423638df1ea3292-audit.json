@@ -1,0 +1,14 @@
+{
+    "keep": {
+        "days": false,
+        "amount": 60
+    },
+    "auditLog": "log\\.ad52db5ae92f7abd8fac8870b423638df1ea3292-audit.json",
+    "files": [
+        {
+            "date": 1607563034664,
+            "name": "log\\fmb-excel-system.log.2020-12-10",
+            "hash": "ff859a8174c37123627f5ac9df1865db"
+        }
+    ]
+}
