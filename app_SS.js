@@ -58,7 +58,6 @@ function procSTS() {
 
     fs.readdir(procFolder, function (error, filelist) {
         console.log(filelist);
-        logger.info(`${new Date().toFormat('YYYY-MM-DD HH24:MI:SS')} ${JSON.stringify(filelist)}`)
         let sucCnt = 0,
             failCnt = 0;
 
@@ -66,6 +65,8 @@ function procSTS() {
             if (element == 'done') {
                 return;
             }
+            logger.info(`${new Date().toFormat('YYYY-MM-DD HH24:MI:SS')} proc : ${JSON.stringify(filelist)} `)
+
 
             console.log(element)
             let file_Name = element
@@ -114,10 +115,10 @@ function procSTS() {
           
                 console.log('oper', oper)
 
-                let sql_mfmblothis = `INSERT INTO mfmblothis (ORDER_ID,TRAN_USER_ID,DUE_DATE,CUSTOMER,OPER,
+            /*     let sql_mfmblothis = `INSERT INTO mfmblothis (ORDER_ID,TRAN_USER_ID,DUE_DATE,CUSTOMER,OPER,
                     TRAN_COMMENT,TRAN_TIME,QTY,LOSS_QTY) VALUES 
           ('${req}','${user}','${due_date}','${customer}','${oper}',
-           '${comment}','${order_date}',${qty},${loss_qty},'${order_date}'); `;
+           '${comment}','${order_date}',${qty},${loss_qty},'${order_date}'); `; */
 
                 let update_sql = `UPDATE mfmblotsts 
             SET QTY = '${qty}',
@@ -127,7 +128,6 @@ function procSTS() {
 
                 conn.query(update_sql, function (err, result) {
                     if (err) 
-                        console.log('update : ', err)
                     throw err;
                     console.log(result.affectedRows + " record(s) updated");
                     logger.debug(result.affectedRows + " record(s) updated proc")
@@ -144,19 +144,9 @@ function procSTS() {
                             if (err) {
                                 console.log("mfmblotsts 에러 : " + err, rows);
                                 logger.error("mfmblotsts(proc) 에러 : " + err, rows)
-                                /*   let failSql=`INSERT INTO excel_import_fail_logs
-                                  (eORDER_IDX, eComment, eCreateDate)
-                                  VALUES ('${req}', '${err}', NOW())`;
-                                  conn.query(failSql, function(err, rows, fields){
-                                      if(err){
-                                          console.log(err)
-                                      }else{
-
-                                      }
-                                  }); */
+                             
                                 failCnt++
                             } else {
-                                //console.log("성공 : "+rows.insertId);
                                 sucCnt++
                             }
 
@@ -171,19 +161,9 @@ function procSTS() {
                         if (err) {
                             console.log("mfmblothis 에러 : " + err, rows);
                             logger.error("mfmblothis(proc) 에러 : " + err, rows)
-                            /*   let failSql=`INSERT INTO excel_import_fail_logs
-                              (eORDER_IDX, eComment, eCreateDate)
-                              VALUES ('${req}', '${err}', NOW())`;
-                              conn.query(failSql, function(err, rows, fields){
-                                  if(err){
-                                      console.log(err)
-                                  }else{
-
-                                  }
-                              }); */
+                           
                             failCnt++
                         } else {
-                            //console.log("성공 : "+rows.insertId);
                             sucCnt++
                         }
 
@@ -228,6 +208,8 @@ function procHIS() {
             if (element == 'done') {
                 return;
             }
+            logger.info(`${new Date().toFormat('YYYY-MM-DD HH24:MI:SS')} stock : ${JSON.stringify(filelist)} `)
+
 
             console.log(element)
             let file_Name = element
@@ -295,7 +277,6 @@ function procHIS() {
                             qty
                         )}','${comment}','${file1}','${last_tran}','INV001','${checkNum(qty)}')`;
 
-                        //resultData2.push(params)
 
                         console.log(sql_mfmblotsts)
 
@@ -303,19 +284,9 @@ function procHIS() {
                             if (err) {
                                 console.log("에러 : " + err, rows);
                                 logger.error("sql_mfmblotsts(stock) 에러 : " + err, rows)
-                                /*   let failSql=`INSERT INTO excel_import_fail_logs
-                                  (eORDER_IDX, eComment, eCreateDate)
-                                  VALUES ('${req}', '${err}', NOW())`;
-                                  conn.query(failSql, function(err, rows, fields){
-                                      if(err){
-                                          console.log(err)
-                                      }else{
 
-                                      }
-                                  }); */
                                 failCnt++
                             } else {
-                                //console.log("성공 : "+rows.insertId);
                                 sucCnt++
                             }
 
@@ -329,19 +300,9 @@ function procHIS() {
                         if (err) {
                             console.log("에러 : " + err, rows);
                             logger.error("sql_mfmblothis(stock) 에러 : " + err, rows)
-                            /*   let failSql=`INSERT INTO excel_import_fail_logs
-                              (eORDER_IDX, eComment, eCreateDate)
-                              VALUES ('${req}', '${err}', NOW())`;
-                              conn.query(failSql, function(err, rows, fields){
-                                  if(err){
-                                      console.log(err)
-                                  }else{
-
-                                  }
-                              }); */
+                        
                             failCnt++
                         } else {
-                            //console.log("성공 : "+rows.insertId);
                             sucCnt++
                         }
 
@@ -351,9 +312,8 @@ function procHIS() {
 
                 }else{//작업지시ID가 없을 경우
                   
-
                     logger.error(JSON.stringify(element) )
-                 
+        
                 }
             });
 
