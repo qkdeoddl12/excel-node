@@ -2,6 +2,7 @@ const appRoot = require('app-root-path');
 const winston = require('Winston')
 const xlsx = require('xlsx');
 const mysql = require('mysql');
+const moment = require('moment');
 const fs = require('fs');
 const logger = require('./config/logger')
 const schedule = require('node-schedule')
@@ -16,9 +17,7 @@ const mysql_conn_info = {
     port: '3307'
 }
 
-/* const myFormat = printf(({ level, message, label, timestamp }) => {
-    return `${timestamp} [${label}] ${level}: ${message}`;    // log 출력 포맷 정의
-  }); */
+
 
 
 
@@ -88,7 +87,7 @@ function procSTS() {
                     customer = element['고객사'],
                     file1 = element['도면 파일'],
                     file2 = element['견적서 파일'],
-                    mat_type = element['제품타입'],
+                    mat_type = (element['제품타입']=='undefined') ? '':element['제품타입'],
                     mat_thick = element['소재 두께'],
                     comment = regExp_test(element['비고']),
                     order_date = element['작업일시'],
@@ -96,8 +95,12 @@ function procSTS() {
                     loss_qty = checkValue(element['불량수량']),
                     time_type = '';
 
+                    console.log(intTodate(due_date),intTodate2(order_date))
+
+                    console.log('작업공정',changeOPERCODE(element['작업공정']))
+
                 let oper = oper_code.filter(x => {
-                    return x.oName == element['작업공정']
+                    return x.oName == changeOPERCODE(element['작업공정'])
                 });
 
                 if (oper.length != 0) {
@@ -363,47 +366,32 @@ function changeOPERCODE(val) {
     }
     let result = val.split(',');
     result = result[result.length - 1]
+    return result
 
-    switch (result) {
-        case '파이프 절단':
-            //console.log(result);
-            return 'CUT001'
-        case '레이저':
-            //console.log(result);
-            return 'CUT001'
-        case '샤링':
-            //console.log(result);
-            return 'CUT001'
-        case '절곡(노컷)':
-            //console.log(result);
-            return 'BEND001'
-        case '절곡(v-cut)':
-            //console.log(result);
-            return 'BEND002'
-        case '제작(용접)':
-            //console.log(result);
-            return 'ASSY001'
-        case '로라 가공':
-            //console.log(result);
-            return 'ASSY001'
-        case '샤링':
-            //console.log(result);
-            return 'ASSY001'
-        default:
-            return result
-
-    }
+  
 }
 
 function intTodate(val) {
     if (val == '') {
-        return '0000-00-00'
+        return '000000'
     }
     let date = new Date((parseInt(val) - (25567 + 2)) * 86400 * 1000)
     let unix = date.getUTCFullYear() + '-' + lpad((date.getMonth() + 1), 2, '0') +
             '-' + lpad(date.getUTCDate(), 2, '0')
 
-    return unix
+
+    return moment(date).format('YYMMDD')
+}
+
+function intTodate2(val) {
+    if (val == '') {
+        return '000000000000'
+    }
+    let date = new Date((parseInt(val) - (25567 + 2)) * 86400 * 1000)
+    let unix = date.getUTCFullYear() + '-' + lpad((date.getMonth() + 1), 2, '0') +
+            '-' + lpad(date.getUTCDate(), 2, '0')
+
+    return moment(date).format('YYMMDD HH:MM:ss')
 }
 
 function regExp_test(str) {
