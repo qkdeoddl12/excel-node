@@ -6,6 +6,7 @@ const moment = require('moment');
 const fs = require('fs');
 const logger = require('./config/logger')
 const schedule = require('node-schedule')
+const { getJsDateFromExcel } = require("excel-date-to-js");
 const procFolder = './proc';
 const stockFolder = './stock';
 const mysql_conn_info = {
@@ -81,30 +82,48 @@ function procSTS() {
 
             resultData.forEach(element => {
 
+
+    
+
                 let req = element['작업지시ID'],
                     user = element['작업자'],
-                    due_date = element['납기일자'],
+                    due_date =element['납기일자'],
                     customer = element['고객사'],
-                    file1 = element['도면 파일'],
-                    file2 = element['견적서 파일'],
-                    mat_type = (element['제품타입']=='undefined') ? '':element['제품타입'],
-                    mat_thick = element['소재 두께'],
+                    file1 = nvl(element['도면 파일'],''),
+                    file2 = nvl(element['견적서 파일'],''),
+                    mat_type = nvl(element['제품타입'],''),
+                    mat_thick = nvl(element['소재 두께'],''),
                     comment = regExp_test(element['비고']),
                     order_date = element['작업일시'],
                     qty = checkValue(element['작업수량']),
                     loss_qty = checkValue(element['불량수량']),
                     time_type = '';
 
-                    console.log(intTodate(due_date),intTodate2(order_date))
 
-                    console.log('작업공정',changeOPERCODE(element['작업공정']))
+                    if(nvl(order_date,'')!=''){
+                        order_date=getJsDateFromExcel(order_date)
+                    }
+
+                    if(nvl(due_date,'')!=''){
+                        due_date=getJsDateFromExcel(due_date)
+                    }
+
+                    
+                    due_date=moment(due_date).format('YYMMDD')
+                    order_date=moment(order_date).format('YYMMDDHHmmss')
+
+                    //console.log(moment(due_date).format('YYMMDD'),moment(order_date).format('YYMMDDHHmmss'))
+
+                    console.log('작업공정',changeOPERCODE(element['작업공정']),mat_type)
 
                 let oper = oper_code.filter(x => {
                     return x.oName == changeOPERCODE(element['작업공정'])
                 });
 
+                
+
                 if (oper.length != 0) {
-                    oper = oper[0].oCode
+                    oper = nvl(oper[0].oCode,'')
                 } else {
                     oper = 'INV001'
                 }
@@ -115,6 +134,9 @@ function procSTS() {
                     time_type = 'SHIP_TIME';
                 }
 
+
+
+         
           
                 console.log('oper', oper)
 
@@ -425,3 +447,13 @@ function lpad(str, padLen, padStr) {
         : str;
     return str;
 }
+
+function nvl(str, defaultStr){
+         
+    if(typeof str == "undefined" || str == null || str == "")
+        str = defaultStr ;
+     
+    return str ;
+}
+
+
